@@ -272,65 +272,37 @@ function NS:StartDemo()
   if not NS.Toast then return end
   self:StopDemo()
 
-  local function Add(p)
-    p.duration = 86400 -- "infinite" demo
-    self.Toast:ShowToast(p)
-    local top = self.Toast.active and self.Toast.active[1]
-    if top then
-      top._demo = true
-      table.insert(self._demoFrames, top)
+  local function Add(frame)
+    if frame then
+      frame._demo = true
+      table.insert(self._demoFrames, frame)
     end
   end
 
-  -- Match the screenshot-style examples
-  Add({
-    icon = 134145,
-    name = "+80 Iskaara Tuskarr Rep (80 / 3000)",
-    nameR = 0.2, nameG = 0.8, nameB = 1.0,
-    subtext = "",
-    priceText = "",
-  })
+  -- Money Toast sample
+  Add(self.Toast:ShowMoneyToast(2000000, 86400))
 
-  Add({
-    icon = 255132,
-    name = "500x Honor (15000 / 15000)",
-    nameR = 1.0, nameG = 0.82, nameB = 0.0,
-    subtext = "",
-    priceText = "",
-  })
+  -- Currency Toast sample
+  Add(self.Toast:ShowCurrencyToast(
+    1220,                -- Order Resources (sample currency id)
+    "Order Resources",
+    1397630,
+    500,
+    2500,
+    10000,
+    false,
+    86400
+  ))
 
-  Add({
-    icon = 236679,
-    name = "40x Timewarped Badge (2000)",
-    nameR = 1.0, nameG = 0.82, nameB = 0.0,
-    subtext = "",
-    priceText = "",
-  })
-
-  Add({
+  -- Item Toast sample
+  Add(self.Toast:ShowItemToast({
+    key = "demo:item",
     icon = 134400,
-    name = "Some Epic Sword",
+    name = "Item Toast Sample",
     nameR = 0.64, nameG = 0.21, nameB = 0.93,
-    subtext = "ilvl: 400  Leech",
-    priceText = [[|cffffffff1|r |cffffd700g|r |cffffffff85|r |cffc7c7cfs|r |cffffffff17|r |cffeda55fc|r
-|cffffffff1|r |cffffd700g|r |cffffffff23|r |cffc7c7cfs|r |cffffffff45|r |cffeda55fc|r]],
-  })
-
-  Add({
-    icon = 135774,
-    name = "2x Metal Hat",
-    nameR = 0.2, nameG = 0.7, nameB = 1.0,
-    subtext = "ilvl: 315  Indestructible",
-    priceText = [[|cffffffff11|r |cffffd700g|r |cffffffff11|r |cffc7c7cfs|r |cffffffff4|r |cffeda55fc|r
-|cffffffff7|r |cffffd700g|r |cffffffff40|r |cffc7c7cfs|r |cffffffff70|r |cffeda55fc|r]],
-  })
-
-  Add({
-    icon = 133784,
-    name = "Money",
-    subtext = "",
-    priceText = "|cffffffff200|r |cffffd700g|r |cffffffff0|r |cffc7c7cfs|r |cffffffff0|r |cffeda55fc|r",
-  })
+    rightText = "iLvl 400",
+    duration = 86400,
+  }))
 end
 
 function NS:BuildOptions()
