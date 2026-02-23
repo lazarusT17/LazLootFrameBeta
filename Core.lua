@@ -7,6 +7,8 @@ local f = CreateFrame("Frame")
 local lootSlots = {}     -- [slot] = { link, quantity, slotType, name, icon }
 local looting = false
 local moneyStart = 0
+local lastLootClosedAt = 0
+local LOOT_MONEY_GRACE = 0.75
 
 -- GET_ITEM_INFO_RECEIVED fallback (rare now, but safe)
 local pending = {}       -- [key] = { itemLink, quantity }
@@ -133,17 +135,15 @@ local function ShowItemToastFast(itemLink, quantity)
   local icon = GetFastItemIcon(itemID)
   local dur = GetQualityDuration(quality)
 
-  -- Pricing (optional)
   local unitCopper = GetAuctionatorUnitPrice(itemLink, itemID) or 0
   local stackCopper = unitCopper * quantity
   local priceText = BuildPriceText(unitCopper, stackCopper, quantity)
 
-  -- Upsert by itemID when possible, else link
   local key = itemID and ("item:" .. itemID) or ("itemlink:" .. itemLink)
+
   if NS.Toast and NS.Toast.UpsertItemToast then
     NS.Toast:UpsertItemToast(key, icon, name, r, g, b, quantity, priceText, dur)
-  else
-    -- fallback (shouldn't happen if Toasts.lua patched)
+  elseif NS.Toast and NS.Toast.ShowToast then
     NS.Toast:ShowToast({
       key = key,
       icon = icon,
@@ -194,26 +194,42 @@ local function OnLootSlotCleared(slot)
   lootSlots[slot] = nil
   if not data then return end
 
-  -- 1=item, 2=money, 3=currency (client constants vary; slotType is numeric)
-  if data.slotType == LOOT_SLOT_ITEM then
+  -- Retail slotType numeric: 1=item, 2=money, 3=currency
+  if data.slotType == 1 then
     if data.link then
       ShowItemToastFast(data.link, data.quantity)
     end
   end
-  -- money + currency handled by PLAYER_MONEY / CURRENCY_DISPLAY_UPDATE
+  -- money handled by PLAYER_MONEY
+  -- currency handled by CURRENCY_DISPLAY_UPDATE
 end
 
 local function OnLootClosed()
+  -- capture any delta right away
+  local now = GetMoney() or 0
+  local delta = now - (moneyStart or 0)
+  if delta > 0 and NS.Toast and NS.Toast.ShowMoneyToast then
+    NS.Toast:ShowMoneyToast(delta, (NS.DB and NS.DB.durations and NS.DB.durations.gold) or 3)
+    moneyStart = now
+  end
+
   looting = false
+  lastLootClosedAt = GetTime() or 0
   wipe(lootSlots)
 end
 
 -- ---------------------------------------------------------
--- Money (backend): PLAYER_MONEY delta during loot window
+-- Money (backend): PLAYER_MONEY delta w/ grace window
 -- ---------------------------------------------------------
 
 local function OnPlayerMoney()
-  if not looting then return end
+  local t = GetTime() or 0
+  if not looting then
+    if (t - (lastLootClosedAt or 0)) > LOOT_MONEY_GRACE then
+      return
+    end
+  end
+
   local now = GetMoney() or 0
   local delta = now - (moneyStart or 0)
   if delta > 0 and NS.Toast and NS.Toast.ShowMoneyToast then
@@ -227,19 +243,11 @@ end
 -- ---------------------------------------------------------
 
 local function OnCurrencyDisplayUpdate(...)
-  -- Retail commonly: currencyID, quantity, quantityChange, ...
   local currencyID, quantity, quantityChange = ...
 
   if type(currencyID) ~= "number" then return end
   quantityChange = tonumber(quantityChange)
-
-  -- If we don't have a delta, skip (we can still update totals elsewhere)
-  if not quantityChange or quantityChange == 0 then
-    return
-  end
-  if quantityChange < 0 then
-    return -- ignore spending; change if you want negatives
-  end
+  if not quantityChange or quantityChange <= 0 then return end
 
   if not (C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo) then return end
   local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
@@ -271,20 +279,14 @@ f:SetScript("OnEvent", function(_, event, ...)
     NS:InitDB()
     NS:BuildOptions()
 
-    -- Backend-driven
     f:RegisterEvent("LOOT_OPENED")
     f:RegisterEvent("LOOT_READY")
     f:RegisterEvent("LOOT_SLOT_CLEARED")
     f:RegisterEvent("LOOT_CLOSED")
     f:RegisterEvent("PLAYER_MONEY")
     f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
-
-    -- Item roll wins (still backend)
     f:RegisterEvent("LOOT_ITEM_ROLL_WON")
-
-    -- Optional fallback for delayed item info
     f:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
     return
   end
 
