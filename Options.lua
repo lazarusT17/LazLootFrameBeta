@@ -165,7 +165,7 @@ local function BuildMover()
     db.anchor.point = point
     db.anchor.x = x
     db.anchor.y = y
-    if NS.Toast then NS.ToastCore:Reflow() end
+    if NS.Toast then NS.Toast:Reflow() end
   end)
 
   local t = mover:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -199,23 +199,46 @@ local function SetDemo(on)
   end
 end
 
+-- =========================================================
+-- Open Options (Retail Settings + Classic Interface Options)
+-- =========================================================
+
+function NS:OpenOptions()
+  -- Retail Settings UI
+  if Settings and Settings.OpenToCategory then
+    -- Prefer the registered Settings category (Retail expects a category or categoryID)
+    if self.settingsCategory then
+      Settings.OpenToCategory(self.settingsCategory)
+      return
+    end
+    -- If options weren't built yet, build them now and retry once
+    if self.BuildOptions and not self._buildingOptions then
+      self._buildingOptions = true
+      pcall(function() self:BuildOptions() end)
+      self._buildingOptions = false
+      if self.settingsCategory then
+        Settings.OpenToCategory(self.settingsCategory)
+        return
+      end
+    end
+  end
+
+  -- Classic / legacy Interface Options
+  if InterfaceOptionsFrame_OpenToCategory and self.optionsPanel then
+    InterfaceOptionsFrame_OpenToCategory(self.optionsPanel)
+    InterfaceOptionsFrame_OpenToCategory(self.optionsPanel) -- Blizzard bug
+  end
+end
+
 local function EnsureSlash()
   if NS._slashInit then return end
   NS._slashInit = true
 
   SLASH_LAZLOOTFRAME1 = "/llf"
-  SlashCmdList.LAZLOOTFRAME = function(msg)
-    msg = (msg or ""):lower()
-    if msg == "unlock" then
-      SetUnlocked(true)
-      print("LazLootFrame: anchor unlocked (drag). /llf lock")
-    elseif msg == "lock" then
-      SetUnlocked(false)
-      print("LazLootFrame: anchor locked.")
-    elseif msg == "demo" then
-      SetDemo(not NS.DB.ui.demo)
-    else
-      print("LazLootFrame: /llf unlock | /llf lock | /llf demo")
+  SlashCmdList.LAZLOOTFRAME = function()
+    -- /llf ONLY opens settings
+    if NS and NS.OpenOptions then
+      NS:OpenOptions()
     end
   end
 end
@@ -306,6 +329,7 @@ function NS:BuildOptions()
 
   local panel = CreateFrame("Frame", "LazLootFrameOptionsPanel", UIParent)
   panel.name = "LazLootFrame"
+  NS.optionsPanel = panel
 
   local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", 0, -8)
@@ -316,7 +340,7 @@ function NS:BuildOptions()
   scroll:SetScrollChild(child)
 
   MakeTitle(child, "LazLootFrame", -8)
-  MakeLabel(child, "Commands: /llf unlock | /llf lock | /llf demo", 16, -36)
+  MakeLabel(child, "Command: /llf (open settings)", 16, -36)
 
   MakeCheckbox(child, "Unlock Anchor (drag to move)", 16, -70,
     function() return NS.DB.ui.unlocked end,
@@ -330,12 +354,12 @@ function NS:BuildOptions()
 
   MakeSlider(child, "Width", 16, -145, 280, 900, 10,
     function() return NS.DB.width or 520 end,
-    function(v) NS.DB.width = v; if NS.Toast then NS.ToastCore:Reflow() end end
+    function(v) NS.DB.width = v; if NS.Toast then NS.Toast:Reflow() end end
   )
 
   MakeSlider(child, "Scale", 16, -205, 0.5, 2.0, 0.05,
     function() return NS.DB.scale or 1.0 end,
-    function(v) NS.DB.scale = v; if NS.Toast then NS.ToastCore:Reflow() end end,
+    function(v) NS.DB.scale = v; if NS.Toast then NS.Toast:Reflow() end end,
     "%.2f"
   )
 
@@ -387,6 +411,7 @@ function NS:BuildOptions()
   if Settings and Settings.RegisterCanvasLayoutCategory then
     local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
     Settings.RegisterAddOnCategory(category)
+    NS.settingsCategory = category
   else
     InterfaceOptions_AddCategory(panel)
   end
