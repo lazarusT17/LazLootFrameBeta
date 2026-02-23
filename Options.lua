@@ -206,9 +206,14 @@ end
 function NS:OpenOptions()
   -- Retail Settings UI
   if Settings and Settings.OpenToCategory then
-    -- Prefer the registered Settings category (Retail expects a category or categoryID)
+    -- Prefer the registered Settings category.
+    -- Some clients expect a numeric category ID, not the category table.
     if self.settingsCategory then
-      Settings.OpenToCategory(self.settingsCategory)
+      local cat = self.settingsCategory
+      local id = (type(cat) == "table" and cat.ID) or cat
+      if type(id) == "number" then
+        Settings.OpenToCategory(id)
+      end
       return
     end
     -- If options weren't built yet, build them now and retry once
@@ -217,7 +222,11 @@ function NS:OpenOptions()
       pcall(function() self:BuildOptions() end)
       self._buildingOptions = false
       if self.settingsCategory then
-        Settings.OpenToCategory(self.settingsCategory)
+        local cat = self.settingsCategory
+        local id = (type(cat) == "table" and cat.ID) or cat
+        if type(id) == "number" then
+          Settings.OpenToCategory(id)
+        end
         return
       end
     end
