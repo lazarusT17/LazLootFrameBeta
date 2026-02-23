@@ -1,0 +1,11 @@
+## Interface: 120001
+## Title: LazLootFrame
+## Notes: Custom Loot Toast Frame using Auctionator pricing
+## Author: Laz
+## Version: 0.6.5
+## SavedVariables: LazLootFrameDB
+## OptionalDeps: Auctionator
+
+Toasts.lua
+Options.lua
+Core.lua
